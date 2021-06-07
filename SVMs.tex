@@ -1,0 +1,270 @@
+\documentclass{article}
+
+
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{graphicx}
+\input{Header2.tex}
+\graphicspath{ {./images/} }
+
+
+\title{Lecture Notes on Support Vector Machines\\Machine Learning E20}
+
+
+\author{
+ Mathias Ravn Tversted \\
+  Department of Computer Science\\
+  Aarhus University\\
+  Åbogade 34, 8200 Aarhus N \\
+  \texttt{Tversted@post.au.dk} \\
+  %% examples of more authors
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+
+
+\section{Intro and motivation}
+  Suppose we have some linear model, such as in binary classification with $x = (1, x_1, \cdots, x_d)$ with labels $y \in \{-1, 1\}$. Where prediction is $w(x) = \text{sign}(w^T x)$. The PLA is good for classifying training data, but not all seperating lines are equally good when trying to generalize for new points. Here we wish to select the line that has the largest margin to the two groups.
+
+\section{Margins}
+  First we describe a \emph{functional} margin, which is the distance to the hyperplane.
+
+  \subsection{Functional margins:}
+    \begin{itemize}
+      \item Points are $(x_i, y_i)$
+      \item $\hat{\gamma_i} = y_i(w^T x_i + b)$
+      \item $\hat{\gamma} = {\min}_{i} \hat{\gamma_i}$
+    \end{itemize}
+    Remember that $w$ is the vector that is orthogonal to the seperating hyperplane. We wish to minimize this margin.
+    A problem with this definition of the margin is that multiple values of $w$ and $b$ describe the same hyperplane, such as $w^Tx + b = 0 = (n w)^T x + n b$,
+    potentially giving you arbitrarily large weights and biases if you attempt to maximise the margin.\\
+  \subsection{Geometric margins}
+    Instead we formalize a margin that is invariant to scale.\\
+    $x-\delta w$ is the projection of $x$ onto the hyperplane. (We use that $w$ is orthogonal on the hyperplane).\\
+    $w^T(x-\delta w)+b$ must be equal to $0$ since the distance to the hyperplane is $0$.\\
+    \begin{align}
+      w^T(x-\delta w)+b = 0\\
+      w^Tx-\delta \lVert w \rVert^2 +b = 0 && \text{(Multiply into parenthesis)}\\
+      w^Tx/\lVert w \rVert - \delta \lVert w \rVert+b/\lVert w \rVert = 0 && \text{(Scale down by $\lVert w \rVert$)}\\
+      w^Tx/\lVert w \rVert +b/\lVert w \rVert = \delta \lVert w \rVert && \text{(Add $\delta \lVert w \rVert$ to both sides)}\\
+    \end{align}
+    Now we have an equation for the signed distance to the hyperplane which doesn't have the problem with multiple $(w, b)$ describing the same hyperplane, because orthogonal projections are unique if they exist.
+    
+    The geometric margin is
+    \begin{itemize}
+        \item $\gamma_i = y_i(
+        \frac{w}{\vecnorm{w}}^T x_i + \frac{b}{\vecnorm{w}})$
+        \item $\gamma = \min_{i} \gamma_i$
+    \end{itemize}
+
+\section{Linear System}
+  We wish to solve the following linear system to find the hyperplane that maximizes the margin while staying scale invariant.
+  \begin{align}
+    \text{max } & y \\ 
+    \text{s.t } & y_i(w^Tx_i+b)\geq y &&  i=1,\dots,n\\
+         & \lVert w \rVert = 1
+  \end{align}
+  The same optimization problem can be expressed as a minimisation problem that minimizes the norm of $w$.
+  \begin{align}
+    \text{min } & \frac{1}{2}\lVert w \rVert^2 \\ 
+    \text{s.t } & y_i(w^Tx_i+b)\geq 1 &&  i=1,\dots,n
+  \end{align}
+
+  
+  \section{Note: About primal and dual}
+    If our objective function $f$ is convex and all of our $g_i$ constraints are strictly feasible ($x$ where $g_i(x) < 0 \forall i$) then $d^* = p^*$
+
+    \textbf{Karush-Kuhn-Tucker} conditions:
+    There is an optimal solution $x^*, a^*$ satisfying
+    \begin{enumerate}
+      \item $\frac{\partial L(x*, a*)}{\partial x_i} = 0, \text{ for } i = 1, \cdots, d$
+      \item $a_i^* g_i(x^*) = 0, \text{ for } i = 1, \cdots, n$
+      \item $g_i(x^*) \leq 0, \text{ for } i = 1, \cdots, n$
+      \item $a_i^* \geq 0, \text{ for } i = 1, \cdots, n$
+    \end{enumerate}
+
+\section{Rewriting problem}
+    The form of a general optimisation problem is
+    \begin{align}
+      \min_x & f(x) \\
+      \text{s.t } & g_i(x) \leq 0 && i = 1, \cdots, n
+    \end{align}
+    And so our SVM in standard form becomes
+    \begin{align}
+      \min_x & \frac{1}{2}\lVert w \rVert^2 \\
+      \text{s.t } & g_i(w, b) \leq 0 && \text{with} \\
+       & g_i(w, b) = 1 - y_i(w^T x_i + b)
+    \end{align}
+
+    if $f$ and $g_i$ are convex, we can solve dual and assume the solutions satisfy \emph{KKT} conditions. 
+
+    They are! (Proofs omitted). We don't need to proof this, but if we were just look at the hessian matrix. It's all $0$.
+
+    Furthermore, all of our constraints need to be strictly feasible, but if the data is linearly seperable, then there exists a hyperplane which correctly seperates all of the points, then clearly
+    \begin{align}
+      & y_i(w^Tx_i + b) > 0 && \forall i
+    \end{align}
+    And $g_i(w, b) < 0$ if $w, b$ are scaled by appropriate choice of constant $c$. 
+
+    We will thus solve the dual 
+    \begin{align}
+      \max_{a : a_i \geq 0} \min_{w, b} \frac{1}{2}\lVert w \rVert^2 - \sum_{i=1}^{n}a(y_i(w^T x_i + b)-1) 
+    \end{align}
+    
+
+    \textbf{Final formulation}:
+    We want to recover the optimal $w$ and $b$, and we can achieve this by setting derivatives to $0$ as in the \emph{KKT} conditions (the first), and likewise the optimal $b$. 
+
+    The $w$ we get is a hyperplane that satisfied $w = \sum_{i=1}^{n}\alpha_i y_i x_i$ and the optimal $b$ is halfway from the closest blue and furthest red in $w$'s direction. 
+    % https://blackboard.au.dk/bbcswebdav/pid-2634429-dt-content-rid-9805389_1/courses/BB-Cou-UUVA-90726/Lec1Part4%281%29.pdf Slide 22
+    $b = -\frac{1}{2}(\min_{i: y_i = 1} \frac{w^T x_i}{\lVert W \rVert} + \max_{i:y_i = -1} \frac{w^T x_i}{\lVert w \rVert} )$
+
+    The final optimisation problem is thus
+    \begin{align}
+      \max_{a : a_i \geq 0} & \sum_{i = 1}^{n} a_i - \frac{1}{2}\sum_{i=1}^{n}\sum_{j=1}^{n} a_i a_j y_i y_j x_i^T x_j \\
+      \text{s.t } & \sum_{i=1}^{n} a_i y_i = 0
+    \end{align}
+
+    Here values $a_i$ is non-zero when $y_i(w^T x_i + b) = 1$, which means $(x_i, y_i)$ is on the margin. 
+    $w$ is a linear combination of only the support vectors.
+
+\section{Kernels}
+    Classifcation with $\text{sign}(w^T x + b)$ takes $O(d)$ time, but we can also do 
+    \begin{align}
+    \text{sign}(
+      (\sum_{a_i \neq 0}{a_i y_i x_i})^T x + b
+    ) = \text{sign}(
+      \sum_{a_i \neq 0} a_i y_i x_i^T x + b
+    )
+    \end{align}
+    Which takes $O(kd)$ for $k$ support vectors. 
+
+    While this seems slower, it may be an advantage if we have to rely on non-linear feature transforms. 
+
+    If we have some transform $\phi : R^d \rightarrow R^{d'}$, we can create some kernel which turns $\phi(X_i)^T \phi(x)$ into some $\text{Kernel}(x, y) : R^d \times R^d \times \rightarrow R$, where the kernel computes the inner product of the inner products. 
+
+    We can also reformulate our problem \emph{again} so that we find the maximum seperating margin in \emph{feature space}, which we will obviously need to do if the data is not linearly seperable. 
+
+    \begin{align}
+      \max_{a : a_i \geq 0} & \sum_{i = 1}^{n} a_i - \frac{1}{2}\sum_{i=1}^{n}\sum_{j=1}^{n} a_i a_j y_i y_j \text{kernel}(x_i, x_j) \\
+      \text{s.t } & \sum_{i=1}^{n} a_i y_i = 0
+    \end{align}
+    With bias that can be turned from
+    \begin{align}
+        b = -\frac{1}{2}(\min_{i: y_i = 1} \frac{w^T x_i}{\lVert w \rVert} + \max_{i: y_i = -1} \frac{w^T x_i}{\lVert w \rVert})
+    \end{align}
+    Into a more complicated expression that also depends on kernels.
+    
+    The Kernel $K(X_i, X_j) = \phi(X_i)^T \phi(x)$ is not more effective than just calculating the $\phi$'s individually.
+    
+    An example of fast kernels are polynomial kernels.
+    \begin{align}
+        K(x, z) = (x^Tz)^2
+    \end{align}
+    Which can be computed in $O(d)$ time. If we have a transform $\phi(x)$ which has an entry with a product for each combination of $x_i, x_j$, then $K(x, z) = (x^Tz)^2 = \phi(x)^T \phi(z)$. $\phi$ is in $d^2$ space, because it has $d^2$ combinations. We can also add a constant $c$. 
+    
+    Performing the feature transform thus takes $\Omega(d^2)$ time, but the kernels can be computed in $O(d)$ time.
+    
+    We can also generalise it as $K(x,z) = (x^Tz)^r$, where it computes all the $r$ different combinations of indices, then it is $O(d)$ time against $O(d^r)$. 
+    
+    \textbf{Complexity of our kernel formulation}:
+    \begin{itemize}
+        \item $K$ takes $t$ time to evaluate
+        \item $k$ support vectors
+    \end{itemize}
+    Then the ``max'' part takes $O(n^2t)$ time to evaluate. In our formula for $b$, the first term takes $O(knt)$ time, and the second takes $O(k^2t)$ time. Prediction takes $O(kt)$ time. Overall, $O(n^2t)$ + normal SVM time. 
+    
+    \subsection{Perceptron with kernels}
+        Assume we have some feature transform $\phi$. The algorithm is then as follows:
+        \begin{itemize}
+            \item Let $wList = \emptyset$
+            \item Let $aList = \emptyset$
+            \item While there is a data point $(x, y)$ with $y \neq \text{sign}(
+            \sum_{i=1}^{|wList|}\text{aList}[i] \cdot K(\text{wList}[i], x)
+            )$
+            \item \begin{itemize}
+                \item $\text{wList}.append(x)$
+                \item $\text{aList}.append(y)$
+            \end{itemize}
+            \item Return (wList, aList)
+            \item Predict: $\text{sign}(
+            \sum_{i=1}^{|wList|}{
+            aList[i] \cdot K(wList[i], x)
+            }
+            )$
+        \end{itemize}
+        An observation from PLA is that $w$ is just a list of vectors, so we just do this explicitly, and here we can make use of kernels easily.
+        
+
+\section{Non-separable data}
+    For functional margins: If our data is not linearly seperable, then we can allow some points to be misclassified or have smaller margin.
+    
+    We will allow introduce a penalty, $C_{\epsilon_i}$ that pays for an error of $\epsilon_i$.
+    
+  \begin{align}
+    \text{min } & \frac{1}{2}\lVert w \rVert^2 + C\sum_{i=1}^{n}\epsilon_i\\
+    \text{s.t } & y_i(w^Tx_i+b)\geq 1 - \epsilon_i &&  i=1,\dots,n\\
+    & \epsilon_i \geq 0 && i = 1, \dots, n
+  \end{align}
+  
+  This is still linear and convex.
+  
+  The \emph{Karush-Kuhn-Tucker} conditions still hold. 
+  
+Our Regularized SVM dual looks like the following now:
+    \begin{align}
+        \max_{a} & \sum_{i=1}^{n} - \frac{1}{2}\sum_{i=1}^{n}\sum_{j=1}^{n} a_i a_j y_i y_j x^T_i x_j\\
+        \text{s.t } & \sum_{i=1}^{n}a_i y_i = 0\\
+        & 0 \leq a_i \leq C && i = 1, \dots, n
+    \end{align}
+    
+    Our $a$ values are now constrained by our cost, which means we have to use the SMO-algorithm.
+
+\section{SMO Algorithm}
+    \begin{itemize}
+        \item Start at feasible a
+        \item Repeat until satisfied: \begin{itemize}
+            \item Pick two coordinates $a_r, a_s$, fix all others and maximise \begin{align}
+                \sum_{i=1}^{n} a_i - \frac{1}{2}\sum_{i=1}^{n}\sum_{j=1}^{n}a_i a_j y_i y_j K(x_i, x_j
+            \end{align}
+            \item Ensure all constraints remain satisfied by solving a quadratic equation in $a_r$
+        \end{itemize}
+    \end{itemize}
+    
+    Based on \emph{KKT} conditions, stop when (allow for some slack)
+    \begin{itemize}
+        \item $a_i = 0 \implies y_i (w^T x_i + b) \geq 1 - \epsilon$
+        \item $a_i = C \implies y_i(w^T x_i + b) \leq 1 + \epsilon$
+        \item $0 < a_i < C \implies y_i(w^T x_i + b) \in (1 - \epsilon, 1 + \epsilon)$
+    \end{itemize}
+    
+\end{document}
+

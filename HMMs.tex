@@ -1,0 +1,311 @@
+\documentclass{article}
+
+
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+\input{Header2.tex}
+
+\title{Lecture Notes on Hidden Markov Models\\Machine Learning E20}
+
+
+\author{
+ Mathias Ravn Tversted \\
+  Department of Computer Science\\
+  Aarhus University\\
+  Åbogade 34, 8200 Aarhus N \\
+  \texttt{Tversted@post.au.dk} \\
+  %% examples of more authors
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Definitions and terminology}
+
+  \textbf{Hidden Markov Model}
+  A \emph{Hidden Markov Model} consists of
+  \begin{itemize}
+    \item Transition Probability Matrix: $K \times K$ matrix $A$ that describe $K$ discrete states.
+    \item Emission Probability Matrix: $K \times D$ matrix $\Phi$, where D is possible emissions/symbols. 
+    \item Initialization Vector ($\pi$) with $K$ entries, one for each state.
+  \end{itemize}   
+
+  We will denote the set of latent states as $Z = \{z_1, \cdots, z_N\}$, the observables as $X = \{x_1, \cdots, x_N\}$ and model parameters as $\Theta = \{\pi, A, \phi\}$
+
+  Where the following must apply
+  \begin{itemize}
+    \item The sum of any column k of $A$ always equal 1 because a column represents the outgoing transition probabilities of a state.
+    \item The sum of any row k of $\Phi$ is equal 1, because a row represents a state with d emission possibilities.
+    \item The sum of all indexes in $\pi$ is equal 1, because a chain must start in some initial state.
+  \end{itemize}
+
+  
+  A Hidden Markov Model can be used to determine the likelihood of a sequence of observations. 
+  It does this with a finite number of states, whose transition probabilities are kind of like a \emph{finite automata} ``encoding some process which is being modelled'', and where it can emit some output in each state.
+  It is called a \emph{hidden} model if we do not know the probabilities, but are only able to observe the output of the process.
+
+  Specifically, our joint distribution is 
+
+  \begin{align}
+    p(X, Z | \Theta) = p(z_1 | \pi) \left[
+      \Pi_{n=2}^{N}{
+        p(z_n | z_{n-1}, A)
+      }
+    \right]
+    \Pi_{n=1}^{N}{
+      p(x_n | z_n, \phi)
+    }
+  \end{align}
+  If $A$ and $\Phi$ are the same for all $n$ then the HMM is \emph{homogeneous}. 
+  
+  Once all probabilities are in place, the HMM can also be used to generative that which it models. 
+  I.E based on a model M - generate a most likely sequence of states from $M$, followed by a most likely sequence of emissions from these states.  
+
+
+\section{Decoding algorithms}
+  \subsection{Viterbi decoding}
+    Given $X$, find $Z^*$ such that: 
+    \begin{align}
+      Z^* = \arg \max_Z p(X,Z|\Theta). 
+    \end{align}
+    Where $Z^*$ is the overall most likely explanation of $X$.
+
+    We can express this as: 
+    \begin{align}
+      Z^*_N = \arg \max_{Z_N}\max_{Z_1,\dots,Z_{N-1}} p(x_1,\dots,x_N,Z_1,\dots,Z_N).
+    \end{align}
+    We express the last part of this expression as
+    \begin{align}
+      \omega(Z_N) = \max_{Z_1,\dots,Z_{N-1}} p(x_1,\dots,x_N,Z_1,\dots,Z_N) 
+    \end{align}
+    which is what we wish to maximize. So $\omega$ is the probability of the most likely sequence of states $z_1,\dots,x_n$ ending in $z_n$ given the observations $x_1,\dots,x_n$.
+
+
+    We can calculate $\omega(Z_n)$ through recursion
+
+      \begin{itemize}
+        \item \textbf{General case}: $\omega(Z_n) = p(x_n|Z_n)\max_{Z_{n-1}}p(Z_n|Z_{n-1})\omega(Z_{n-1})$
+        \item \textbf{Base case:} $\omega(Z_1) = p(x_1,z_1) = p(z_1)p(x_1|z_1)$
+      \end{itemize}
+
+    We use this to calculate a matrix $\Omega$ which can be used for backtracking. 
+
+    Computing $\Omega$ takes $O(K^2N)$ with $O(KN)$ space with memoization.
+
+    \textbf{Backtracking Algorithm}
+    \begin{outline}
+      \1 $Z[N] = \arg \max_k \omega[k][N]$
+      \1 for $n = N-1$ to 1:
+        \2 $Z[n] = \arg \max_k (p(x[n+1] | Z[n+1]) \cdot \omega[k][n] \cdot p(Z[n+1] | k))$
+    \end{outline}
+    
+    This algorithm runs in $O(KN)$ time.
+
+    When we backtrack we start in the last column of the matrix and select the state that has the maximum value.
+    Then we find the state that was most likely in the $Z_{n-1}$ step. i.e. what gives get largest $\omega$ for the state in the column that we picked $Z_{n}$.
+
+\section{Training by counting}
+  
+  We can count how many times the transition from $j$ to $k$ is taken, over how many times a transition from state $j$ is taken.
+  \begin{align}
+    A_{jk} = \frac{
+      \sum_{n=2}^{N}z_{n-1,j} z_{nk}
+    }{
+      \sum_{l=1}^{K}\sum_{n=2}^{N}{z_{n-1, j}z_{nl}}
+    }
+  \end{align}
+  With \emph{pseudo-counting} we assume that every transition has been seen at least once.
+
+  \begin{align}
+    \pi_k = \frac{z_1k}{\sum_{j=1}^{K}{z_{1j}}}
+  \end{align}
+  We can take how many times a symbol $i$ is emitted from state $k$ over how many times a symbol os emitted from state $k$. 
+  \begin{align}
+    \phi_{ik} = \frac{
+      \sum_{n=1}^{N}z_{nk}x_{ni}
+    }{
+      \sum_{n=1}^{N}{z_{nk}}
+    }
+  \end{align}
+
+  This yields a \emph{maximum likelihood estimate} (MLE) $\Theta^*$ of $P(X, Z | \Theta)$. This is known as \emph{training by counting} and is a nice analytic solution.
+
+
+  \section{Viterbi Training}
+
+  If the latent states $Z$ are unknown, but we only have a sequence $X$ of observations, then we are looking to solve
+  \begin{align}
+    \max p(X |\Theta) = \sum_{Z}{p(X, Z | \Theta)} w.r.t \Theta
+  \end{align}
+  This is a hard problem, and to solve it we will use \emph{Viterbi Training.}
+
+  \textbf{Viterbi Training}
+
+  \begin{enumerate}
+    \item Decide on initial parameter $\Theta^0$
+    \item Compute most likely sequence of states $Z^*$ under $X$ using the Viterby Algorithm, yielding $\Theta^i$
+    \item Update to $\Theta^{i+1}$ by pseudocounting according to $(X, Z^*)$
+    \item Repeat 3-4 until $P(X, Z^* | \Theta^i)$ makes you happy, or the sequence of states does not change
+  \end{enumerate}
+  This yields $\text{VIT}_X(\Theta) = \max_{Z}p(X, Z | \Theta)$. This is NOT an MLE, but it works.
+
+  $p(X | \Theta_{\text{Vit}}^i)$ is not guaranteed, but usually is, close to $p(X | \Theta^*_X)$
+
+
+
+
+  \subsection{Posterior decoding} 
+  $z^*_n$ is the most likely state to be in the $n$'th step. 
+  \begin{align}
+    z^*_n = \arg \max_{z_n} p(z_n | x_1, \dots, x_N)
+  \end{align}
+
+  We have that
+   \begin{align}
+    p(z_n | x_1, \dots, x_N)  = \frac{p(x_1, \dots, x_n, z_n) p(x_{n+1}, \dots, x_N | z_n)}{p(x_1, \dots, x_N)}  = \frac{\alpha(z_n) \beta(z_n)}{p(X)}
+  \end{align}
+  Where $\alpha$ is the joint probability of observering up to $x_n$ and being in state $z_n$, and $\beta$ is the conditional probability of future observations from $x_{n+1}$ up to $x_N$ if we are in state $z_n$. 
+
+  In total, this gives us that
+  \begin{align}
+    z^*_n = \arg \max_{z_n} p (z_n | x_1, \dots, x_N) = \arg \max_{z_n} \alpha{z_n}\beta{z_n}/p(X)
+  \end{align}
+  
+  Which is found by calculating the value for all of the states $Z$. This is calculated in $O(K^2N)$ time bounded by $\alpha$ and $\beta$.
+
+  We also have that $p(X) = \sum_{z_n \in Z}{\alpha(z_n)}$
+
+\subsection{Calculating $\alpha$ and $\beta$}
+  The $\alpha$ values are also called \emph{Forward values}.
+  They can be calculated recursively.
+  \begin{itemize}
+    \item \textbf{General case:} $\alpha(z_n) = p(x_n | z_n) \sum_{z_{n-1}}p(z_n | z_{n-1})\alpha(z_{n-1})$
+    \item \textbf{Base case:} $\alpha(z_1) = p(x_1, z_1) = p(z_1)p(x_1|z_1)$
+  \end{itemize}
+  
+  The $\beta$ values, also called \emph{Backward} values.
+  \begin{itemize}
+    \item \textbf{General case:} $\beta(z_n) = \sum_{z_{n-1}}\beta(z_{n-1})p(x_{n+1}|z_{n+1})p(z_{n+1}|z_n)$
+    \item \textbf{Base case:} $\beta(z_N) = 1$
+  \end{itemize}
+  
+  
+  
+
+
+
+
+
+
+  \section{Expectation Maximisation}
+        We are given a sequence of observations $X$. Pick an initial set of parameters $\theta^0_{EM}$ and consider the expectation of the log-likelihood $\log p(X, Z | \Theta)$ over $Z$ (given $X$ and $\theta^0_{EM}$) as function of $\Theta$. 
+        
+        Because direct maximisation of log-likelihood is hard, we can, using an iterative method, consisting of an \emph{expectation step} and a \emph{maximisation step}, compute better and better estimates of $\Theta$. 
+        
+      Define the $Q$-function as 
+      \begin{align}
+        Q(\Theta, \theta^{old}) = \sum_{Z}p(Z | X, \Theta^{old}) logp(X, Z | \Theta)
+      \end{align}
+        Recall definition of entropy. 
+        
+        In other words, we have a valid set of parameters $\Theta^{old}$ and want to estimate a set $\Theta$ which yields a better likelihood.
+      
+        Specifically, if
+        \begin{align}
+            EM_{X, \Theta^0_{EM}}(\Theta) = E_{Z | X, \Theta^0_{EM}} = \sum_{Z}(p(Z | X, \Theta^0_{EM}) \log p(X, Z | \Theta)
+        \end{align}
+        
+        Specifically, we are iterating through the following
+        \begin{align}
+            \Theta^{t+1} = \arg \max_{\Theta} Q(\Theta, \Theta^{t})
+        \end{align}
+        It turns out that (proof omitted) these better and better values can be computed with the forward and backwards algorithms. 
+        
+        This gives rise to our algorithm:
+        
+      \subsubsection{EM algorithm}
+      
+        \begin{enumerate}
+            \item \textbf{Init:} Pick suitable non-zero parameters (zero remains zero)
+            \item \textbf{E-Step} Run forward and backward algorithms for current choice of parameters to get parameters of $Q$-function, or, enable us to construct $\Theta$s.
+            \item \textbf{M-Step}: Compute $\Theta^{t+1}$
+            \item Compute (log) likelihood $p( X | \Theta)$ and use this to determine if you are happy.
+        \end{enumerate}
+        
+        Running time is $O(K^2N + KK + K^2NK + KDN)$ per iteration, or $O(K^2N + KDN)$ with memorization, and it (without guarantees) converges towards a (local) maximum of $p( X | \Theta)$.
+        
+        
+        
+\section{Extensions}
+    Improve performance of a HMM using specialized architectures.
+    Autoregressive HMMs for genes - consider emissions from $x_{n-1}$, $x_{n-2}$, when calculating emission from $x_n$. Each emission becomes a codon.    
+    
+    
+    \subsection{Logspace and scaling}
+  To avoid issues with really small values, we can compute $\log(\omega(z_n))$. Because log is monotonically increasing, it preserves inequalities. It also turns products into sums. If a factor is $0$, the product becomes $0$. We turn $log(0)$ into a representation of ``minus infinity''. This works because we are using products.
+  This new transformed $\omega$ gets denoted as $\hat{\omega}$ and can also be calculated using recursion as so:
+  \begin{itemize}
+    \item $\hat{\omega}(z_n) = \log p(x_n | z_n) + \max_{j=1}^{n-1}(\hat{\omega}(z_j)+\log p(z_n | z_j))$
+  \end{itemize}
+  The Basis is:
+  \begin{itemize}
+    \item $\hat{\omega}(z_1) = \log(p(z_1)p(x_1|z_1)) = \log p(z_1) + \log p(x_1 | z_1)$
+  \end{itemize}
+
+
+  We can't use log transform for $\alpha$ and $\beta$ since $\log(\Sigma f) \neq \Sigma(\log f)$.
+
+  Instead, we calculate a scaled (normalized) version of $\alpha$ called $\hat{\alpha}$ using recursion like so. We calculate the following in each step.
+  \begin{itemize}
+    \item $\delta(z_n) = p(x_n|z_n)\sum_{j=1}^{n-1}\hat{\alpha}(z_j)p(z_n|z_j)$
+    \item $c_n = \sum_{k=1}^K\delta(z_{nk})$
+    \item $\hat{\alpha}(z_{nk}) = \delta(z_{nk})/c_n$
+  \end{itemize}
+  The Basis is:
+  \begin{itemize}
+    \item $\hat{\alpha}(z_1) = \alpha(z_n)$
+    \item $c_1 = \sum_{k=1}^K\pi_k p(x_1|\phi_k)$
+  \end{itemize}
+
+  The $\alpha$s  has the following relation to $\hat{\alpha}$: $\alpha(z_n) = \left(\prod_{m=1}^n c_m \right) \hat{\alpha}(z_n)$
+
+  $\beta$ can not be scaled using log transform neither. So here we also make a scaling.
+  $\hat{\beta}$ is calculated using recursion as so ($c_{n+1}$ is the c from the forward recursion):\\
+  \begin{itemize}
+    \item $\epsilon(z_n) = \sum_{j=1}^{n-1}\hat{\beta}(z_j)p(x_{n+1} | z_j)p(z_j | z_n)$
+    \item $\hat{\beta}(z_nk) = \epsilon(z_nk)/c_{n+1}$
+  \end{itemize}
+  The Basis is:
+  \begin{itemize}
+    \item $\hat{\beta}(z_N) = 1$
+  \end{itemize}
+
+
+\end{document}

@@ -1,0 +1,188 @@
+\documentclass{article}
+
+
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{graphicx}
+\input{Header2.tex}
+
+
+\title{Lecture Notes on linear models\\Machine Learning E20}
+
+
+\author{
+ Mathias Ravn Tversted \\
+  Department of Computer Science\\
+  Aarhus University\\
+  Åbogade 34, 8200 Aarhus N \\
+  \texttt{Tversted@post.au.dk} \\
+  %% examples of more authors
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+
+\section{(Pocket) Perceptron Learning Algorithm}
+  A way to nicely do \emph{linear classification} is to use the \emph{Perceptron Learning Algorithm}. 
+  Let $X = \{1\} \times \R^d$ be the input space. Let $Y \in \{+1, -1\}$ be the output space. The coordinates of the $x$-vector corresponds to features of the input. We are looking to ``train'' weights and bias $w \in R^{d+1}$ such that $\sum_{i=0}^{d}{(\text{sign}(w_ix_i)\neq y_i)} = 0$ or, the data is perfectly linearly seperated. This is only possible if there exists some hypothesis that can actually do this.
+  
+  \subsection{The Perceptron Learning Algorithm}
+    \begin{enumerate}
+        \item Pick an $x$ s.t $y(t) \neq \text{sign}(w^T(t)x(t))$.
+        \item \emph{Move the line in that direction} with update rule: $w(t+1) = w(t) + y(t)x(t)$
+      \end{enumerate}
+      This algorithm is \emph{guaranteed to terminate} given the data is linearly seperable.
+
+      \subsection{Quick note: Pocket Perceptron Learning Algorithm}
+        If the data is not linearly seperable, we can use the \emph{Pocket Perceptron Learning Algorithm}. We want to find the $w$ that minimises $E_{in}(w) = \frac{1}{n}\sum_{i=1}^{n}{1_{sign(x_i^Tw)\neq y_i}}$. 
+
+        Run for set number of epochs, keep track of best. Return best solution after those epochs.
+
+\section{Non-linear transforms}
+      If the data is not linearly seperable, then we can transform the data to take advantage of potentially linearly seperable properties.
+
+      A \emph{non-linear feature transform} is some $\Phi : R^d \rightarrow R^{d'}$ applied to all feature vectors to get some data-matrix $X' \in Mat_{n \times d'}$. 
+
+      An obvious example of this is \emph{distance to origin} $\Phi(x_1, x_2) = (x_1^2 + x_2^2)$. 
+
+      Learning theory tells us that simple hypotheses generalise better, and this is worth keeping in mind. 
+
+\section{Regression}
+    We will consider the problems of linear regression and logistic regression. Linear regression finds a best-fit linear model, and in logistic regression, we are working with probabilities instead of raw values.
+
+      \subsection{Linear Regression}
+
+      If instead of \emph{classification} we want to find \emph{values}, we can use \emph{regression}. Here we are also drawing some hyperplane, where we have a loss function (MSE) to be minimised $L(w) = \frac{1}{N}(Xw-y)^T(Xw-y)$. 
+
+      % Tegn https://blackboard.au.dk/bbcswebdav/pid-2634429-dt-content-rid-9194690_1/courses/BB-Cou-UUVA-90726/Lec2Part2%281%29.pdf side 2/28 diagram
+
+      Let $X \in \R^{N \times (d+1)}$ be the matrix of inputs, and $y \in \R^{n}$ be the target vector. 
+      
+      The in-sample error is MSE 
+      \begin{align}
+        & E_{in}(w) = \frac{1}{N}\sum_{n=1}^{N}{(w^Tx_n - y_2)^2} = \frac{1}{N}||Xw - y||^2
+      \end{align}
+      And we are looking to solve the following optimisation problem: 
+      \begin{align}
+       w_{lin} = \arg \min_{w \in \R^{d+1}}E_{in}(w)
+      \end{align}
+
+      We would like the gradient to be $\nabla l(w) = 0$. This is a column vector where $[\nabla l(w)]_i = \frac{\partial}{\partial w_i}l(w)$. 
+
+     Note that 
+     \begin{align}
+     \frac{\partial}{\partial w_j}l(w) = \sum_{i=1}^{n} 2(x^T_iw - y_i)x_{i, j}
+     \end{align}
+     
+
+      First we expand our loss function
+      \begin{align}
+        & (Xw - y)^T (Xw-y) = (w^TX^TXw + y^Ty - 2X^Tw^Ty)
+      \end{align}
+
+      Then we compute the derivative. We have the following identities that can help us:
+      \begin{align}
+        & \nabla_w(w^T \cdot A \cdot w)=(A+A^T) \cdot w && \text{Identity 1}\\
+        & \nabla_w(w^T \cdot b) = b && \text{Identity 2} 
+      \end{align}
+    Yielding
+      \begin{align}
+        \nabla l(w) = \nabla (w^TX^TXw + y^Ty - 2w^TX^Ty) = 2(X^TXw-X^Ty)
+      \end{align}
+        We will then isolate the solution
+        \begin{align}
+            & 2(X^TXw - X^Ty) = 0 \leftrightarrow\\
+            & (X^TXw - X^Ty) = 0 \leftrightarrow \\
+            & X^TXw = X^Ty \leftrightarrow \\
+            & w = (X^TX)^{-1}X^Ty
+        \end{align}
+        The R.H.S in (11) is the \emph{pseudoinverse}. Computing it gives us the least squares fit, or if $X^TX$ is invertible, a unique optimal solution.
+      
+      \subsubsection{The Linear Regression Algorithm}
+      \begin{enumerate}
+        \item Compute \emph{Pseudo-Inverse} $X^{\dagger}$.
+        \item Return $w_{lin} = X^{\dagger}y$
+      \end{enumerate}
+      Here we have a nice \emph{analytic solution}. This gives us the ability to ``predict'' future values.
+      
+      The running time is 
+      \begin{itemize}
+          \item $X^TX$ is $O(d^2n)$
+          \item Inverse $O(d^3)$
+          \item $X^Ty$ is $O(dn)$
+          \item $(X^TX)^{-1}(X^Ty)$ is $O(d^2)$
+      \end{itemize}
+      Giving us $O(d^2n + d^3)$
+
+      \subsection{Logistic Regression}
+      In \emph{logistic regression}, we are looking at probabilities and not values. Output values are thus bounded to the interval $[0, 1]$. We will use the \emph{logistic function} $\theta(s) = \frac{e^s}{1+e^s}$. As in our hypothesis $h$ is $h = \theta(w^Tx)$. This output is then interpreted as the \emph{probability for a binary event}, where we trying to learn a target function $f(x) = P[y = +1 | x]$, with us trying to find
+      \begin{align}
+        P(y | x) = \begin{cases}
+          f(x) & \text{for } y = +1\\
+          1 - f(x) & \text{for } y = -1
+        \end{cases}
+      \end{align}
+      Because of potential noise.
+
+      \subsubsection{Error measure:}
+      We look at \emph{likelihood}. We want to find a hypothesis $h$ that maximises
+      \begin{align}
+        \prod_{n=1}^{N}{P(y_n | x_n)}
+      \end{align}
+      We prefer minimisation problems, and we want to be able to have an error measure, so we can transform this as follows:
+      \begin{align}
+        - \frac{1}{N} \ln{(\prod_{n=1}^{N}P(y_n | x_n))} = \frac{1}{N}\sum_{n=1}^{N}ln(\frac{1}{P(y_n | x_n)})
+      \end{align}
+      but the probabilities should be our $\theta$ function, thus giving us:
+     \begin{align}
+        E_{in}(w) = \frac{1}{N}\sum_{n=1}^{N}ln(\frac{1}{\theta(y_n w^Tx_n)}) = \frac{1}{N}\sum_{n=1}^{N}ln(1 + e^{-y_n w^T x_n})
+     \end{align} 
+
+     We can not expect to find a nice analytic solution to this problem, so we wil need an algorithm such as $\cdots$
+\section{(Stochastic) Gradient Descent}
+     Gradient descent allows us to minimise a twice-differentiable function. It allows us to think of $E_{in}(w)$ as a surface, where we can step in the direction of valleys. If the function is \emph{convex}, then it will find the global minimum, otherwise it will find a local minimum. 
+
+    \textbf{Fixed learning rate gradient descent} 
+    \begin{enumerate}
+      \item Initialize the weights at step $t = 0$ to $w(0)$
+      \item For $t = 0, 1, 2, \cdots $ \textbf{do}
+      \item Compute gradient $g_t = \nabla E_{in}(w(t))$
+      \item Set move direction $v_t = -g_t$
+      \item Update weights $w(t+1) = w(t) + \eta v_t$
+      \item Iterate until IT'S TIME TO STOP
+    \end{enumerate}
+    For logistic regression $\nabla E_{in}(w(t))$ equals $-\frac{1}{N}\sum_{n=1}^{N}\frac{y_nx_n}{1+e^{y_nw^T(t)x_n}}$
+
+    \textbf{Initialization and termination}: Good in practice: Choose each weight independently from normal distribution (zero mean) and small variance.
+
+    \subsection{Stochastic Gradient descent}
+    We simply look at 1 point for each epoch instead of all the data. It is a much cheaper evaluation (factor N), but it is more jumpy. Eventually these erratic jumps cancel out.
+
+\end{document}

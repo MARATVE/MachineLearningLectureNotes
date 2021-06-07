@@ -1,0 +1,190 @@
+\documentclass{article}
+
+
+\usepackage{arxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{graphicx}
+\input{Header2.tex}
+
+
+\title{Lecture Notes on Decision Trees and Boosting\\Machine Learning E20}
+
+
+\author{
+ Mathias Ravn Tversted \\
+  Department of Computer Science\\
+  Aarhus University\\
+  Åbogade 34, 8200 Aarhus N \\
+  \texttt{Tversted@post.au.dk} \\
+  %% examples of more authors
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Decision Trees}
+  It is a way of approximating discrete-valued target functions by using tree structures. This is basically spicy nested if-statements.
+
+  A tree represents a disjunction of conjunctions, where each path from the root to a leaf represents a conjunction of attributes.
+
+  They work well if the instances of the data are represented with attribute-value pairs, as these correspond nicely to the tests at each layer of the tree.
+
+  They are also pretty good at \emph{classification}. 
+
+
+  Finding the smallest decision tree that perfectly classifies data is \emph{NP-Hard}. Therefore, we have to rely on heuristics in order to create them, a popular one of these is by using \emph{entropy}. 
+
+\section{Entropy and loss functions}
+
+  For a c-wise classification of points, we can measure the \emph{entropy} of such a distribution. The entropy measures \emph{uncertainty} in a distribution/the expected number of bits needed to represent this information. 
+
+  The equation for Entropy is as follows.
+  \begin{align}
+    Entropy(S) \equiv -1 \sum_{i=1}^c p_i log_2p_i
+  \end{align}
+  Where $p_i$ is the proportion of points with that label. We define $0 \log 0 = 0$. 
+
+  If we want to, we can measure the entropy of an entire decision tree by measuring summing over the entropy of each leaf in the tree. If $S_v$ is the subset of $n$ data points ending in that leaf, then the entropy of the entire decision tree is 
+  \begin{align}
+    \sum_{v}{\frac{|S_v|}{n}Entropy(S_v)}
+  \end{align}
+  Where $Entropy(S_v)$ only considers the points that end in that leaf node. 
+
+  This also allows us to measure the \emph{information gain} from rearranging our tree, to make decisions on how we should build it.
+
+Entropy weights clean cuts very high
+
+\section{Algorithm}
+
+\subsection{Greedy algorithm for small decision trees}
+  Let $k$ be a budget of internal nodes in the tree. Start with the root as a leaf. 
+  Repeat $k$ times:
+  \begin{enumerate}
+    \item Try all leaves $v$, all features $f$ and all split values $x$
+    \item For each choice, compute reduction in tree entropy
+    \item Replace with the stump that decides entropy the most
+  \end{enumerate}
+
+\section{Bagging, Random Forest - Currently empty}
+
+
+\section{Boosting}
+  Boosting are meta-algorithms that take weak learners, defined as models that are better than random guessing, and combining them somehow in order to produce good learners. This can be done with things such as voting or weighing.
+  
+  If we run algorithm $A$ $T$ times (not on same dataset) in order to produce hypotheses $h_1, \cdots, h_T \in H$, we can with weights $\alpha_1, \cdots, \alpha_T$ produce a better model 
+  \begin{align}
+    f(x) = sign(
+      \sum_{t=1}^{T}{\alpha_t h_t(x)}
+    )
+  \end{align}
+  Here the different weights and datasets enable us to tweak things in order to produce a good learner. It is also possible to have weights on training data. For example, some points could be outliers or something similar which could mess up classifiers. 
+
+
+  \subsection{AdaBoosting}
+    AdaBoost runs in T rounds where it creates a new weak hypotesis $h_t$. 
+    \begin{itemize}
+        \item It calculates the error (The sum of scenarios where $h_t(x_i)\neq y_i$).
+        \item The weight $a_t$ for that hypothesis is larger the less errors there is: $\frac{1}{2}ln(\frac{1-er_t}{er_t})$.
+        \item Then using the previous weights for the dataset ($D_t$), the new hypothesis ($h_t$), and its weight $a_t$ a new set of weights for the dataset is created.
+        \item $D_{t+1}(i)=\frac{D_t(i)exp(-a_ty_ih_t(x_i))}{Z_t}$
+    \end{itemize}
+    The final function after the T rounds is $f(x)=sign(\sum_{t=1}^Ta_th_t(x))$
+
+    Problems with AdaBoost
+    \begin{itemize}
+      \item Minimises exp loss, not your favourite davourite loss function
+      \item Binary classification problem, but we may want to do regression or sigmoidybois
+    \end{itemize}
+
+\section{Gradient boosting}
+  \subsection{Distance to target}
+    Algorithm:\\
+    Make a regressions tree $h_t$ in each round $t$ that minimizes least aquares loss where the y it trains against is $y-h_{t-1}-\dots -h_1$.\\
+    To prevent overstepping use a learning rate $\eta$.
+
+  \subsection{Gradient Descent}
+    \begin{itemize}
+      \item General template for boosting with any pointwise loss function $L(y', y)$
+      \item Only need to be able to compute derivative 
+      \item If we can compute derivative of $L(c, y_i)$ w.r.t $c$, then we can minimise gradient descent in one variable
+      \item Can focus on effective MSE regression tree algorithms
+      \item To optimize for concrete loss function $L$, only need to be able to opmise for constant in a leaf
+    \end{itemize}
+
+  Allows for arbitrary loss functions. Uses regression trees as base learner. We will train many regression trees and take their weighted sum as the output.
+  
+  \begin{itemize}
+    \item Let $a_1 = 1$
+    \item Let $F_t(x) = \sum_{j=1}^{t}{a_j h_j(x)}$
+    \item Let $h_1(x) = c$ that minimises \begin{align}
+        E_{in} = \frac{1}{n}\sum_{i=1}^{n}{L(c, y_i)}
+    \end{align}
+    \end{itemize}
+    
+    For $t = 2, \dots, T$
+    
+    \begin{itemize}
+        \item Train regression tree $h_t$ to minimise least squares loss with data $X$ and \begin{align}
+            \hat{y} = -\begin{pmatrix}
+      \frac{\partial L (F_{t-1}(x_1), y_1)}{\partial F_{t-1}(x_1)} \\
+      \vdots \\
+      \frac{\partial L (F_{t-1}(x_n), y_n)}{\partial F_{t-1}(x_n)}
+    \end{pmatrix}
+        \end{align}
+        \item For each leaf $l$ in $h_t$ \begin{itemize}
+            \item Let $l$ predict value $c_l$ minimising \begin{align}
+                \sum_{i \in l}{L(F_{t-1}(x_i) + c_l, y_i)}
+            \end{align}
+            \item Let $a_t = \eta$
+        \end{itemize}
+    \end{itemize}
+    
+    Output $f(x) = \sum_{t=1}^{T}{a_t h_t(x)}$
+  
+  
+\newpage
+  For $t = 2, \cdots, T$:
+  \begin{enumerate}
+    \item Train regression tree $h_t$ to minimise least squares loss
+    \item With data $X, \hat{y} = -\begin{pmatrix}
+      \frac{\partial L (F_{t-1}(x_1), y_1)}{\partial F_{t-1}(x_1)} \\
+      \vdots \\
+      \frac{\partial L (F_{t-1}(x_n), y_n)}{\partial F_{t-1}(x_n)}
+    \end{pmatrix} $
+    \item For each leaf $l$ in $h_t$
+    \item \begin{enumerate}
+      \item Let $l$ predict value $c_l$ minimising
+      \item $\sum_{i \in l}{L(F_{t-1}(x_i)+c_l, y_i)}$
+    \end{enumerate}
+    \item Let $\alpha_t = \eta$
+  \end{enumerate}
+  Output $f(x) = \sum_{t=1}^{T}{\alpha_t h_t(x)}$
+
+
+\end{document}
